@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+# LocalShift claude-free runner — cron-safe entrypoint.
+# Resolves its own repo root so it works from PATH (plugin-enabled) or absolute path (cron).
+set -euo pipefail
+ROOT="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/.." && pwd)"
+exec uv --directory "$ROOT" run --quiet python -m localshift "$@"

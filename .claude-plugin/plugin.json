@@ -1,0 +1,10 @@
+{
+  "name": "localshift",
+  "description": "Migrate headless frontier-AI workloads (cron jobs, skills, prompts) to local LLMs: explore the workflow, derive its quality eval, replicate locally, judge local-vs-frontier 1v1, cut over what passes.",
+  "version": "0.1.0",
+  "author": { "name": "Alex Wurm" },
+  "homepage": "https://github.com/ahwurm/localshift",
+  "repository": "https://github.com/ahwurm/localshift",
+  "license": "MIT",
+  "keywords": ["local-llm", "migration", "eval", "vllm", "localharness"]
+}

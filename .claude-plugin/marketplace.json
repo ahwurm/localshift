@@ -1,0 +1,14 @@
+{
+  "name": "localshift",
+  "description": "LocalShift — migrate headless frontier-AI workloads to local LLMs with derived, per-workload quality evals.",
+  "owner": { "name": "Alex Wurm" },
+  "plugins": [
+    {
+      "name": "localshift",
+      "description": "Migrate headless frontier-AI workloads to local LLMs with a derived, per-workload quality eval — explore, replicate, judge 1v1 vs frontier, cut over what passes.",
+      "author": { "name": "Alex Wurm" },
+      "category": "productivity",
+      "source": "./"
+    }
+  ]
+}
