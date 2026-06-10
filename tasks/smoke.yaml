@@ -1,0 +1,14 @@
+name: smoke
+source: localshift Phase 1 runner self-test
+prompt_file: /home/openclaw-user/localshift/tasks/smoke-prompt.md
+env_vars: [SMOKE_OUT]
+workdir: /home/openclaw-user/localshift/runs/smoke
+tools: [write]
+budget:
+  max_actions: 3
+  max_duration_minutes: 3.0
+artifacts:
+  - "${SMOKE_OUT}"
+models:
+  local: qwen3.6-27b
+  frontier: "claude -p (cron default)"
