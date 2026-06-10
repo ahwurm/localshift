@@ -1,1 +1,1 @@
-Write the exact text `localshift smoke ok` to the file at path ${SMOKE_OUT} using the write tool. Then stop. Do not create or modify any other file.
+You must call the write tool exactly once, with these exact parameters: path=${SMOKE_OUT} and content=`localshift smoke ok`. After the tool result comes back, reply with the single word: done. Do not create or modify any other file.

@@ -72,6 +72,33 @@ def _resolve_model_id() -> Optional[str]:
         return None
 
 
+def _probe_native_tool_calls(model_id: str) -> bool:
+    """Honest native-mode probe. The pinned localharness detect_capabilities() probes
+    with thinking ON and max_tokens=64 — qwen3.6 truncates mid-<think> before emitting
+    the call, gets misclassified as xml, and xml mode then DROPS the native tool_calls
+    vLLM actually returns (proven live 2026-06-10: every tool run died at iteration 1).
+    This probe asks the same question the run path will ask: thinking OFF, room to
+    answer. True ⇒ construct the client in native mode and skip detection."""
+    try:
+        r = httpx.post(
+            BASE_URL + "/chat/completions",
+            json={
+                "model": model_id,
+                "messages": [{"role": "user", "content": "Call the ping tool now."}],
+                "tools": [{"type": "function", "function": {
+                    "name": "ping", "description": "ping",
+                    "parameters": {"type": "object", "properties": {}},
+                }}],
+                "max_tokens": 256,
+                "chat_template_kwargs": {"enable_thinking": False},
+            },
+            timeout=60,
+        ).json()
+        return bool(r["choices"][0]["message"].get("tool_calls"))
+    except Exception:
+        return False
+
+
 def _map_tools_builtin(tools: list[str]) -> list[str]:
     """Map friendly task tool names to localharness builtin names. Raise ValueError on
     an unmapped tool (spec.py already validated membership, but fail loud on drift)."""
@@ -124,6 +151,7 @@ async def run_local(spec: TaskSpec, env: Mapping[str, str], *, trace_path: str |
     #    model is the LIVE endpoint id (stored in RunResult.model_id too). The endpoint
     #    advertises supports_function_calling: false, so detect_capabilities() must run
     #    once before the loop to set tool_call_mode (xml/native) from a live probe.
+    native = _probe_native_tool_calls(model_id)
     cfg = LLMConfig(
         base_url=BASE_URL,
         model=model_id,
@@ -134,9 +162,47 @@ async def run_local(spec: TaskSpec, env: Mapping[str, str], *, trace_path: str |
         is_local=True,
         extra_headers={},
         stop_sequences=[],
+        tool_call_mode="native",  # constructor honors this only when we skip detection
     )
     llm = LLMClient(cfg)
-    await llm.detect_capabilities()  # never raises; defaults to xml on probe failure
+    if not native:
+        await llm.detect_capabilities()  # fallback: pinned probe (defaults xml on failure)
+
+    # Format-roulette normalizer: vLLM's qwen3_xml server parser sometimes converts the
+    # model's xml tool text into structured tool_calls (content=None) and sometimes leaves
+    # it raw in content. Native mode reads only the structured channel — so when a reply
+    # has no tool_calls but content carries an xml attempt, parse it client-side with the
+    # pinned FnCallConverter and attach (loop's native extractor accepts dicts). Covers
+    # both sides of the roulette without touching the pinned lib.
+    from localharness.provider.fn_call import FnCallConverter, has_tool_call_attempt
+    import json as _json
+    import types as _types
+
+    _conv = FnCallConverter()
+    _orig_complete = llm.complete
+
+    async def _complete_normalized(messages, tools=None, stream=False):
+        message, usage = await _orig_complete(messages, tools, stream)
+        if not getattr(message, "tool_calls", None):
+            content = getattr(message, "content", "") or ""
+            if has_tool_call_attempt(content):
+                calls = _conv.extract_tool_calls(content)
+                if calls:
+                    dicts = [
+                        {"id": c.id, "function": {"name": c.name, "arguments": _json.dumps(c.arguments)}}
+                        for c in calls
+                    ]
+                    try:
+                        message.tool_calls = dicts
+                    except Exception:
+                        message = _types.SimpleNamespace(
+                            role=getattr(message, "role", "assistant"),
+                            content=content,
+                            tool_calls=dicts,
+                        )
+        return message, usage
+
+    llm.complete = _complete_normalized
 
     # 3. Tool registry from a REAL base restricted to the task tools. base_registry is
     #    MANDATORY — from_allowed() WITHOUT it raises (the empty-registry trap).
