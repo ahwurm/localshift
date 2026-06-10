@@ -1,0 +1,45 @@
+# Smoke workload checks — exercises ALL SIX check types against the smoke
+# artifact (default runs/smoke/smoke.txt, written by the smoke task, containing
+# "localshift smoke ok"). ${SMOKE_OUT} mirrors real workload path rendering.
+# Each rule cites its mapped intent (the eval dimension it stands in for).
+checks:
+  # the run produced its artifact at all
+  - id: artifact-present
+    type: artifact_exists
+    target: ${SMOKE_OUT}
+    hard: true
+
+  # a structured side-artifact is well-formed JSON
+  - id: fixture-parses
+    type: artifact_parses
+    target: workloads/smoke/fixture.json
+    value: json
+    hard: false
+
+  # the success marker the downstream consumer keys off is present
+  - id: has-marker
+    type: contains
+    target: ${SMOKE_OUT}
+    value: "smoke ok"
+    hard: true
+
+  # the artifact has the expected shape (banner line)
+  - id: shape-ok
+    type: regex
+    target: ${SMOKE_OUT}
+    value: "localshift\\s+smoke"
+    hard: false
+
+  # NEVER-rule: no fabricated/placeholder markers leaked into the artifact
+  - id: no-fabrication
+    type: forbid_regex
+    target: ${SMOKE_OUT}
+    value: "FABRICATED|PLACEHOLDER|TODO"
+    hard: true
+
+  # at least the expected number of structured outputs exist (fan-out cap shape)
+  - id: json-count
+    type: file_glob_count
+    target: "workloads/smoke/*.json"
+    value: ">=1"
+    hard: false
