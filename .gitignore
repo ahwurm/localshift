@@ -1,7 +1,11 @@
 __pycache__/
 *.pyc
 .venv/
-workloads/*/runs/
 runs/
 .localshift/
 .planning/
+# dogfood workload dirs contain personal pipeline internals — local-only; the generic smoke fixture stays public
+workloads/*
+!workloads/.gitkeep
+!workloads/smoke
+!workloads/smoke/**
