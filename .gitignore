@@ -9,3 +9,4 @@ workloads/*
 !workloads/.gitkeep
 !workloads/smoke
 !workloads/smoke/**
+/HANDOFF.md
